@@ -40,32 +40,37 @@ export default function Home() {
   }, [preset, customDays]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  setErr(null); setResult(null); setQr(null);
-  setLoading(true);
-  try {
-    const expiresAt = days ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
-    const res = await fetch("/api/create", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url, expiresAt, customSlug: null }),
-    });
+    e.preventDefault();
+    setErr(null);
+    setResult(null);
+    setQr(null);
+    setLoading(true);
+    try {
+      const expiresAt = days ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url, expiresAt, customSlug: null }),
+      });
 
-    const data: { fullShortUrl?: string; error?: string } = await res.json();
-    if (!res.ok || !data.fullShortUrl) throw new Error(data.error || "Failed to create link");
+      const data: { fullShortUrl?: string; error?: string } = await res.json();
+      if (!res.ok || !data.fullShortUrl)
+        throw new Error(data.error || "Failed to create link");
 
-    setResult(data.fullShortUrl);
+      setResult(data.fullShortUrl);
 
-    // ⬇️ Put your line here
-    const qrPng = await QRCode.toDataURL(data.fullShortUrl, { margin: 2, width: 160 });
-    setQr(qrPng);
-
-  } catch (e: unknown) {
-    setErr(e instanceof Error ? e.message : "Something went wrong");
-  } finally {
-    setLoading(false);
+      // ⬇️ Put your line here
+      const qrPng = await QRCode.toDataURL(data.fullShortUrl, {
+        margin: 2,
+        width: 160,
+      });
+      setQr(qrPng);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   async function copy() {
     if (!result) return;
@@ -90,7 +95,7 @@ export default function Home() {
 
   return (
     <main className={styles.container}>
-      <h1 className={styles.h1}>urlie ✂️</h1>
+      <h1 className={styles.h1}>Shortsy</h1>
       <p className={styles.sub}>
         Create short links with expiry and optional custom slug.
       </p>

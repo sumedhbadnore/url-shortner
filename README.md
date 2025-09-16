@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shortsy
 
-## Getting Started
+**Shortsy** is a tiny URL shortener built with Next.js and deployed on Vercel.
+It creates 6-character short codes, supports optional custom slugs, expirations (TTL), copy & QR, and fast redirects.
 
-First, run the development server:
+Built with [Next.js](https://nextjs.org/) and deployed on [Vercel](https://vercel.com/).
+
+---
+
+## 🚀 Quick Start
 
 ```bash
+# install
+npm install
+
+# dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# open http://localhost:3000
+```
+#### Environment (local & Vercel):
+
+- REDIS_URL – Redis connection string (if using Redis Cloud)
+
+- BASE_URL (optional) – e.g. https://your-app.vercel.app
+ (API also auto-detects origin)
+
+---
+
+### How It Works
+
+- Create: The UI calls POST /api/create with a destination URL, optional expiry, and optional custom slug.
+The server generates a 6-char code (or uses your slug), stores {code → url} with an optional TTL in Redis, and returns a fullShortUrl.
+
+- Open: Visiting /r/[code] resolves the code and 302 redirects to the long URL.
+
+- No DB vendor lock: Storage is abstracted; you can swap Redis for Vercel KV/Turso later with a small adapter.
+
+---
+
+### Features
+
+- Short links: Random 6-char codes (unambiguous alphabet).
+
+- Custom slugs: Claim /r/my-link if available.
+
+- Expiry (TTL): Choose preset days or custom; expired links disappear automatically.
+
+- Nice UX: Copy button, QR code, simple local “recent” list, dark/light aware.
+
+- Prod-friendly: Deployed on Vercel, typed API, linted, minimal deps.
+
+---
+
+### Parameters
+
+- Destination URL: Must be a valid http(s) URL.
+
+- Expiry: Presets (Never, 1/7/30/90 days) or a custom number of days.
+
+- Custom Slug (optional): [A-Za-z0-9_-], 3–32 chars; reserved words (e.g. api, r, _next) are blocked.
+
+---
+
+### API
+
+- Create Short Link
+
+```
+POST /api/create
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Request Body
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+{
+  "url": "https://www.linkedin.com/in/sumedh-badnore/",
+  "expiresAt": 1759344000000,   // epoch ms, optional (null = never)
+  "customSlug": "sumedh"        // optional
+}
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Response
 
-## Learn More
+```
+{
+  "code": "sumedh",
+  "fullShortUrl": "https://your-app.vercel.app/r/sumedh"
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+- Example (curl)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+curl -X POST https://your-app.vercel.app/api/create \
+  -H "content-type: application/json" \
+  -d '{"url":"https://example.com","expiresAt":null,"customSlug":null}'
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+### Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+  app/
+    page.tsx               # UI: form, presets, custom slug, copy, QR
+    page.module.css        # Styles (dark/light aware)
+    api/
+      create/route.ts      # POST /api/create (Node.js runtime)
+    r/[code]/route.ts      # GET /r/:code redirect (Node.js runtime)
+  lib/
+    storage.ts             # Storage interface + Redis-backed implementation
+    redis.ts               # ioredis client helper
+  types/
+    qrcode.d.ts            # (dev) types for 'qrcode' if needed
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+
+Made with ☕ caffeine and curiosity by Sumedh.
