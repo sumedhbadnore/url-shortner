@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStorage } from "../../lib/storage";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(
   _req: NextRequest,

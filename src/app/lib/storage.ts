@@ -1,100 +1,56 @@
-// lib/storage.ts
-export type CreateRequest = {
-  url: string;
-  // optional features
-  expiresAt?: number | null; // epoch ms
-  customSlug?: string | null; // only for DB mode
-};
+// src/app/lib/storage.ts
+import { getRedis } from "./redis";
+import { customAlphabet } from "nanoid";
 
-export type CreateResult = {
-  code: string;     // what we append after /r/
-  fullShortUrl: string;
-};
-
+export type CreateRequest = { url: string; expiresAt?: number | null; customSlug?: string | null };
+export type CreateResult  = { code: string; fullShortUrl: string };
 export interface Storage {
   create(req: CreateRequest): Promise<CreateResult>;
   resolve(code: string): Promise<{ url: string }>;
 }
 
-/**
- * STATELESS STORAGE (no DB):
- * We issue a compact, signed token that *contains* the destination URL (+ expiry).
- * Tamper-proof via HMAC; verified on read. No persistence required.
- */
-import { SignJWT, jwtVerify } from "jose";
+const genCode = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz", 6);
 
-function getSecretKey() {
-  const secret = process.env.SECRET_KEY;
-  if (!secret) throw new Error("SECRET_KEY missing");
-  return new TextEncoder().encode(secret);
-}
-
-const ALG = "HS256";
-const ISS = "urlie";
-
-export class StatelessStorage implements Storage {
+class RedisStorage implements Storage {
   constructor(private baseUrl: string) {}
 
   async create(req: CreateRequest): Promise<CreateResult> {
     const { url, expiresAt } = req;
+    const r = getRedis();
+    const ttlMs = typeof expiresAt === "number" ? Math.max(0, expiresAt - Date.now()) : undefined;
 
-    // Normalize & basic validation
-    let dest: URL;
-    try { dest = new URL(url); } catch { throw new Error("Invalid URL"); }
+    let code = genCode();
+    let res: "OK" | null;
 
-    const now = Math.floor(Date.now() / 1000);
-    const payload: Record<string, unknown> = { u: dest.toString() };
-    const key = getSecretKey();
-
-    const jwt = await new SignJWT(payload)
-      .setProtectedHeader({ alg: ALG })
-      .setIssuer(ISS)
-      .setIssuedAt(now)
-      .setExpirationTime(expiresAt ? Math.floor(expiresAt / 1000) : now + 60 * 60 * 24 * 365) // default 1 year
-      .sign(key);
-
-    // A JWT is URL-safe already (base64url). Use it as the "code".
-    const code = jwt;
-    return {
-      code,
-      fullShortUrl: `${this.baseUrl}/r/${code}`,
-    };
-  }
-
-  async resolve(code: string): Promise<{ url: string }> {
-    try {
-      const { payload } = await jwtVerify(code, getSecretKey(), { issuer: ISS });
-      const u = payload["u"];
-      if (typeof u !== "string") throw new Error("Malformed token");
-      return { url: u };
-    } catch {
-      // invalid or expired
-      throw new Error("Link is invalid or has expired");
+    if (ttlMs !== undefined) {
+      res = await r.set(code, url, "PX", ttlMs, "NX");  // ← order matters
+    } else {
+      res = await r.set(code, url, "NX");
     }
+
+    while (res === null) {
+      code = genCode();
+      if (ttlMs !== undefined) {
+        res = await r.set(code, url, "PX", ttlMs, "NX");
+      } else {
+        res = await r.set(code, url, "NX");
+      }
+    }
+
+    return { code, fullShortUrl: `${this.baseUrl}/r/${code}` };
+  }
+
+  async resolve(code: string) {
+    const r = getRedis();
+    const target = await r.get(code);
+    if (!target) throw new Error("Not found or expired");
+    return { url: target };
   }
 }
 
-/**
- * DB STORAGE (future-ready):
- * Implement with Prisma/Postgres, Vercel KV, Turso, etc.
- * Slugs can be short (6–8 chars), support custom slugs, analytics, etc.
- */
-export class DbStorage implements Storage {
-  // Stubbed; swap in real queries later.
-  constructor(private baseUrl: string) {}
-  async create(_req: CreateRequest): Promise<CreateResult> {
-    throw new Error("DB storage not configured yet");
-  }
-  async resolve(_code: string): Promise<{ url: string }> {
-    throw new Error("DB storage not configured yet");
-  }
-}
-
-// Factory
 export function getStorage(): Storage {
-  const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-  const mode = process.env.STORAGE_MODE || "stateless"; // 'db' later
-  if (mode === "db") return new DbStorage(baseUrl);
-  return new StatelessStorage(baseUrl);
+  const baseUrl =
+    process.env.BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  return new RedisStorage(baseUrl);
 }
-
