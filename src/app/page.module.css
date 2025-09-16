@@ -62,3 +62,20 @@ body { background: var(--bg); }
 .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0f0f13; border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
 .error { color: #ff6b6b; }
 .success { color: var(--accent-2); }
+
+
+/* === Light mode fixes (add to the END of page.module.css) === */
+@media (prefers-color-scheme: light) {
+  .input, .select {
+    background: #ffffff;       /* was #0f0f13 */
+    color: #1b1b1f;            /* readable on white */
+    border-color: #e5e7eb;
+  }
+  .input::placeholder { color: #6b7280; }
+
+  .linkBox, .tag {
+    background: #ffffff;       /* match card background */
+    color: #1b1b1f;
+    border-color: #e5e7eb;
+  }
+}
