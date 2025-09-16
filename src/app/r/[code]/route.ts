@@ -1,4 +1,4 @@
-// app/r/[code]/route.ts
+// src/app/r/[code]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getStorage } from "../../lib/storage";
 
@@ -6,11 +6,13 @@ export const runtime = "edge";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { code: string } }
+  ctx: { params: Promise<{ code: string }> }   // ← params is a Promise
 ) {
+  const { code } = await ctx.params;           // ← await it
+
   const storage = getStorage();
   try {
-    const { url } = await storage.resolve(params.code);
+    const { url } = await storage.resolve(code);
     return NextResponse.redirect(url, { status: 302 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "invalid";
