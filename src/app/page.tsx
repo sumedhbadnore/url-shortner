@@ -1,103 +1,85 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
+
+import { useState } from "react";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [url, setUrl] = useState("");
+  const [days, setDays] = useState<number>(365);
+  const [result, setResult] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setErr(null);
+    setResult(null);
+    try {
+      const expiresAt = days ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url, expiresAt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed");
+      setResult(data.fullShortUrl);
+    } catch (e: any) {
+      setErr(e?.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main style={{ maxWidth: 680, margin: "40px auto", padding: 16 }}>
+      <h1>urlie ✂️</h1>
+      <p>Create signed, stateless “short” links (no database required).</p>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+        <input
+          placeholder="https://example.com/some/long/path?with=params"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          required
+          style={{ padding: 12, fontSize: 16 }}
+        />
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span>Expires in (days):</span>
+          <input
+            type="number"
+            min={0}
+            value={days}
+            onChange={(e) => setDays(parseInt(e.target.value || "0", 10))}
+            style={{ width: 100, padding: 8 }}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <small>(0 = never)</small>
+        </label>
+        <button disabled={loading} style={{ padding: 12, fontSize: 16 }}>
+          {loading ? "Creating…" : "Create link"}
+        </button>
+      </form>
+
+      {err && <p style={{ color: "crimson" }}>{err}</p>}
+      {result && (
+        <p>
+          Short link:{" "}
+          <a href={result} target="_blank" rel="noreferrer">{result}</a>
+        </p>
+      )}
+
+      <hr style={{ margin: "24px 0" }} />
+      <details>
+        <summary>How it works (no DB)</summary>
+        <p>
+          We encode the destination URL + expiry into a signed token (JWT with HMAC). The token is
+          verified on the edge and you’re redirected. No persistence, perfect for Vercel’s free tier.
+        </p>
+        <p>
+          Later, switch <code>STORAGE_MODE</code> to <code>db</code> and implement the{" "}
+          <code>DbStorage</code> class to support 6–8 char slugs, custom slugs, analytics, etc.
+        </p>
+      </details>
+    </main>
   );
 }
