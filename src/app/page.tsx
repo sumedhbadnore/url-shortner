@@ -10,7 +10,7 @@ export default function Home() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setErr(null);
@@ -22,11 +22,14 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url, expiresAt }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed");
+      const data: { fullShortUrl?: string; error?: string } = await res.json();
+      if (!res.ok || !data.fullShortUrl) {
+        throw new Error(data?.error || "Failed");
+      }
       setResult(data.fullShortUrl);
-    } catch (e: any) {
-      setErr(e?.message ?? "Something went wrong");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Something went wrong";
+      setErr(message);
     } finally {
       setLoading(false);
     }
@@ -67,19 +70,6 @@ export default function Home() {
           <a href={result} target="_blank" rel="noreferrer">{result}</a>
         </p>
       )}
-
-      <hr style={{ margin: "24px 0" }} />
-      <details>
-        <summary>How it works (no DB)</summary>
-        <p>
-          We encode the destination URL + expiry into a signed token (JWT with HMAC). The token is
-          verified on the edge and you’re redirected. No persistence, perfect for Vercel’s free tier.
-        </p>
-        <p>
-          Later, switch <code>STORAGE_MODE</code> to <code>db</code> and implement the{" "}
-          <code>DbStorage</code> class to support 6–8 char slugs, custom slugs, analytics, etc.
-        </p>
-      </details>
     </main>
   );
 }

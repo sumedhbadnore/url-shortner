@@ -12,10 +12,11 @@ export async function GET(
   try {
     const { url } = await storage.resolve(params.code);
     return NextResponse.redirect(url, { status: 302 });
-  } catch (e: any) {
-    return new NextResponse(
-      `Link error: ${e?.message ?? "invalid"}`,
-      { status: 410, headers: { "content-type": "text/plain; charset=utf-8" } }
-    );
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "invalid";
+    return new NextResponse(`Link error: ${message}`, {
+      status: 410,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
   }
 }

@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(result, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Failed to create" }, { status: 400 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Failed to create";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
