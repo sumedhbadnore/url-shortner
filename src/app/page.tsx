@@ -190,7 +190,6 @@ export default function Home() {
                 </a>
               </div>
             </div>
-            import Image from "next/image"; // ...
             {qr && (
               <div style={{ textAlign: "center" }}>
                 <Image
