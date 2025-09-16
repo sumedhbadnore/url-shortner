@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 import QRCode from "qrcode";
+import Image from "next/image";
 
 type CreateResp = { code: string; fullShortUrl: string; error?: string };
 
@@ -17,7 +18,9 @@ function isValidUrl(v: string) {
   try {
     const u = new URL(v.trim());
     return !!u.protocol && !!u.host;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 export default function Home() {
@@ -37,31 +40,32 @@ export default function Home() {
   }, [preset, customDays]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErr(null); setResult(null); setQr(null); setCopied(false);
-    if (!isValidUrl(url)) { setErr("Please enter a valid URL (https://…)"); return; }
-    setLoading(true);
-    try {
-      const expiresAt = days ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
-      const res = await fetch("/api/create", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          url: url.trim(),
-          expiresAt,
-          customSlug: customSlug.trim() || null,
-        }),
-      });
-      const data: CreateResp = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create link");
-      setResult(data.fullShortUrl);
-      // Generate QR
-      const qrPng = await QRCode.toDataURL(data.fullShortUrl, { margin: 2, width: 160 });
-      setQr(qrPng);
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Something went wrong");
-    } finally { setLoading(false); }
+  e.preventDefault();
+  setErr(null); setResult(null); setQr(null);
+  setLoading(true);
+  try {
+    const expiresAt = days ? Date.now() + days * 24 * 60 * 60 * 1000 : null;
+    const res = await fetch("/api/create", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url, expiresAt, customSlug: null }),
+    });
+
+    const data: { fullShortUrl?: string; error?: string } = await res.json();
+    if (!res.ok || !data.fullShortUrl) throw new Error(data.error || "Failed to create link");
+
+    setResult(data.fullShortUrl);
+
+    // ⬇️ Put your line here
+    const qrPng = await QRCode.toDataURL(data.fullShortUrl, { margin: 2, width: 160 });
+    setQr(qrPng);
+
+  } catch (e: unknown) {
+    setErr(e instanceof Error ? e.message : "Something went wrong");
+  } finally {
+    setLoading(false);
   }
+}
 
   async function copy() {
     if (!result) return;
@@ -74,7 +78,9 @@ export default function Home() {
   useEffect(() => {
     if (!result) return;
     try {
-      const arr = JSON.parse(localStorage.getItem("recent") || "[]") as string[];
+      const arr = JSON.parse(
+        localStorage.getItem("recent") || "[]"
+      ) as string[];
       const next = [result, ...arr.filter((x) => x !== result)].slice(0, 5);
       localStorage.setItem("recent", JSON.stringify(next));
     } catch {}
@@ -85,7 +91,9 @@ export default function Home() {
   return (
     <main className={styles.container}>
       <h1 className={styles.h1}>urlie ✂️</h1>
-      <p className={styles.sub}>Create short links with expiry and optional custom slug.</p>
+      <p className={styles.sub}>
+        Create short links with expiry and optional custom slug.
+      </p>
 
       <form onSubmit={onSubmit} className={styles.card}>
         <div className={styles.row}>
@@ -107,7 +115,9 @@ export default function Home() {
               onChange={(e) => setPreset(Number(e.target.value))}
             >
               {EXPIRY_PRESETS.map((p) => (
-                <option key={p.label} value={p.days}>{p.label}</option>
+                <option key={p.label} value={p.days}>
+                  {p.label}
+                </option>
               ))}
               <option value={-1}>Custom…</option>
             </select>
@@ -122,7 +132,11 @@ export default function Home() {
               placeholder="e.g. 365"
               disabled={preset !== -1}
               value={customDays}
-              onChange={(e) => setCustomDays(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(e) =>
+                setCustomDays(
+                  e.target.value === "" ? "" : Number(e.target.value)
+                )
+              }
             />
           </div>
         </div>
@@ -136,7 +150,9 @@ export default function Home() {
             onChange={(e) => setCustomSlug(e.target.value)}
           />
           <span className={styles.meta}>
-            <span className={styles.tag}>/r/{hasCustom ? customSlug.trim() : "<auto>"}</span>
+            <span className={styles.tag}>
+              /r/{hasCustom ? customSlug.trim() : "<auto>"}
+            </span>
           </span>
         </div>
 
@@ -152,21 +168,45 @@ export default function Home() {
             <div className={styles.linkBox}>
               <div className={styles.meta}>Short link</div>
               <div style={{ marginTop: 6 }}>
-                <a href={result} target="_blank" rel="noreferrer">{result}</a>
+                <a href={result} target="_blank" rel="noreferrer">
+                  {result}
+                </a>
               </div>
               <div className={styles.actions}>
-                <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={copy}>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnGhost}`}
+                  onClick={copy}
+                >
                   {copied ? "Copied ✓" : "Copy"}
                 </button>
-                <a className={`${styles.btn} ${styles.btnGhost}`} href={result} target="_blank" rel="noreferrer">
+                <a
+                  className={`${styles.btn} ${styles.btnGhost}`}
+                  href={result}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open
                 </a>
               </div>
             </div>
+            import Image from "next/image"; // ...
             {qr && (
               <div style={{ textAlign: "center" }}>
-                <img src={qr} alt="QR" width={160} height={160} style={{ borderRadius: 12, border: `1px solid var(--border)` }} />
-                <div className={styles.meta} style={{ marginTop: 6 }}>Scan to open</div>
+                <Image
+                  src={qr}
+                  alt="QR"
+                  width={160}
+                  height={160}
+                  unoptimized // important for data: URLs
+                  style={{
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                  }}
+                />
+                <div className={styles.meta} style={{ marginTop: 6 }}>
+                  Scan to open
+                </div>
               </div>
             )}
           </div>
